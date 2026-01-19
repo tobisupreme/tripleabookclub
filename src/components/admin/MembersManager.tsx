@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Edit2, Trash2, User, Eye, EyeOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Member } from '@/types/database.types'
-import { Button, Modal, Input, Textarea, Skeleton } from '@/components/ui'
+import { Button, Modal, Input, Textarea, Skeleton, CloudinaryUpload } from '@/components/ui'
 import toast from 'react-hot-toast'
 
 export function MembersManager() {
@@ -261,11 +261,12 @@ function MemberForm({ member, onSubmit, onCancel, isSubmitting }: MemberFormProp
         placeholder="Brief bio about the member"
       />
 
-      <Input
-        label="Photo URL (optional)"
+      <CloudinaryUpload
+        label="Photo (optional)"
         value={imageUrl}
-        onChange={(e) => setImageUrl(e.target.value)}
-        placeholder="https://..."
+        onChange={setImageUrl}
+        resourceType="image"
+        folder="tripleabookclub/members"
       />
 
       <div className="space-y-4">

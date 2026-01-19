@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Edit2, Trash2, Image as ImageIcon, Video, GripVertical } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { GalleryItem } from '@/types/database.types'
-import { Button, Modal, Input, Textarea, Skeleton } from '@/components/ui'
+import { Button, Modal, Input, Textarea, Skeleton, CloudinaryUpload } from '@/components/ui'
 import toast from 'react-hot-toast'
 
 export function GalleryManager() {
@@ -240,11 +240,12 @@ function GalleryItemForm({ item, onSubmit, onCancel, isSubmitting }: GalleryItem
         </div>
       </div>
 
-      <Input
-        label={`${type === 'image' ? 'Image' : 'Video'} URL`}
+      <CloudinaryUpload
+        label={type === 'image' ? 'Image' : 'Video'}
         value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        placeholder="https://..."
+        onChange={setUrl}
+        resourceType={type}
+        folder="tripleabookclub/gallery"
       />
 
       <Input
@@ -260,17 +261,6 @@ function GalleryItemForm({ item, onSubmit, onCancel, isSubmitting }: GalleryItem
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Brief description"
       />
-
-      {/* Preview */}
-      {url && (
-        <div className="rounded-xl overflow-hidden bg-white/5 aspect-video">
-          {type === 'image' ? (
-            <img src={url} alt="Preview" className="w-full h-full object-contain" />
-          ) : (
-            <video src={url} controls className="w-full h-full" />
-          )}
-        </div>
-      )}
 
       <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
         <Button type="button" variant="ghost" onClick={onCancel}>

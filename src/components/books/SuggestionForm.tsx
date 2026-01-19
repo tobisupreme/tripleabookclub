@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Upload } from 'lucide-react'
-import { Input, Textarea, Button } from '@/components/ui'
+import { Input, Textarea, Button, CloudinaryUpload } from '@/components/ui'
 import { Suggestion } from '@/types/database.types'
 
 interface SuggestionFormProps {
@@ -88,27 +87,13 @@ export function SuggestionForm({ category, month, year, onSubmit, onCancel }: Su
         helperText={`${synopsis.length}/1000 characters`}
       />
 
-      <Input
-        label="Cover Image URL (optional)"
-        placeholder="https://example.com/book-cover.jpg"
+      <CloudinaryUpload
+        label="Cover Image (optional)"
         value={imageUrl}
-        onChange={(e) => setImageUrl(e.target.value)}
-        helperText="Paste a URL to the book's cover image"
+        onChange={setImageUrl}
+        resourceType="image"
+        folder="tripleabookclub/suggestions"
       />
-
-      {/* Image preview */}
-      {imageUrl && (
-        <div className="relative w-32 h-48 rounded-lg overflow-hidden bg-white/5">
-          <img
-            src={imageUrl}
-            alt="Cover preview"
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none'
-            }}
-          />
-        </div>
-      )}
 
       <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
         <Button type="button" variant="ghost" onClick={onCancel}>

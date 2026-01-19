@@ -4,10 +4,11 @@ import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { Play, X, Image as ImageIcon, Video, ZoomIn } from 'lucide-react'
+import { Play, X, Image as ImageIcon, Video, ZoomIn, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { GalleryItem } from '@/types/database.types'
-import { Tabs, TabPanel, Skeleton } from '@/components/ui'
+import { Tabs, TabPanel, Skeleton, Button, Modal, Input, Textarea, CloudinaryUpload } from '@/components/ui'
+import toast from 'react-hot-toast'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -22,12 +23,13 @@ export function GalleryContent() {
   const [activeTab, setActiveTab] = useState('all')
   const [loading, setLoading] = useState(true)
   const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null)
+  const [showUploadModal, setShowUploadModal] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const galleryRef = useRef<HTMLDivElement>(null)
+  const supabase = createClient()
 
   useEffect(() => {
     const fetchGallery = async () => {
-      const supabase = createClient()
-      
       const { data } = await supabase
         .from('gallery')
         .select('*')
@@ -37,7 +39,13 @@ export function GalleryContent() {
       setLoading(false)
     }
 
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setIsAuthenticated(!!user)
+    }
+
     fetchGallery()
+    checkAuth()
   }, [])
 
   useEffect(() => {
@@ -70,12 +78,27 @@ export function GalleryContent() {
     ? items 
     : items.filter(item => item.type === activeTab)
 
+  const handleUploadSuccess = (newItem: GalleryItem) => {
+    setItems([...items, newItem])
+    setShowUploadModal(false)
+    toast.success('Media uploaded successfully!')
+  }
+
   return (
     <section className="section-padding pt-0">
       <div className="container-main">
-        {/* Tabs */}
-        <div className="flex justify-center mb-12">
+        {/* Header with Tabs and Upload Button */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-12">
           <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+          
+          {isAuthenticated && (
+            <Button 
+              onClick={() => setShowUploadModal(true)}
+              leftIcon={<Plus className="w-4 h-4" />}
+            >
+              Add Media
+            </Button>
+          )}
         </div>
 
         {/* Gallery Grid */}
@@ -126,6 +149,19 @@ export function GalleryContent() {
           />
         )}
       </AnimatePresence>
+
+      {/* Upload Modal */}
+      <Modal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        title="Add to Gallery"
+        size="md"
+      >
+        <GalleryUploadForm
+          onSuccess={handleUploadSuccess}
+          onCancel={() => setShowUploadModal(false)}
+        />
+      </Modal>
     </section>
   )
 }
@@ -309,5 +345,138 @@ function Lightbox({ item, items, onClose, onNavigate }: LightboxProps) {
         {currentIndex + 1} / {items.length}
       </div>
     </motion.div>
+  )
+}
+
+// Gallery Upload Form for Members
+interface GalleryUploadFormProps {
+  onSuccess: (item: GalleryItem) => void
+  onCancel: () => void
+}
+
+function GalleryUploadForm({ onSuccess, onCancel }: GalleryUploadFormProps) {
+  const [type, setType] = useState<'image' | 'video'>('image')
+  const [url, setUrl] = useState('')
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const supabase = createClient()
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!url.trim() || !title.trim()) {
+      toast.error('Please upload a file and add a title')
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      // Get the max order index
+      const { data: existingItems } = await supabase
+        .from('gallery')
+        .select('order_index')
+        .order('order_index', { ascending: false })
+        .limit(1)
+
+      const maxOrder = existingItems?.[0]?.order_index || 0
+
+      const { data, error } = await supabase
+        .from('gallery')
+        .insert({
+          type,
+          url: url.trim(),
+          title: title.trim(),
+          description: description.trim() || null,
+          order_index: maxOrder + 1,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      onSuccess(data)
+    } catch (error) {
+      toast.error('Failed to upload media. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <p className="text-white/60 text-sm">
+        Share photos or videos from book club events with the community!
+      </p>
+
+      <div>
+        <label className="label-text">Type</label>
+        <div className="flex gap-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="type"
+              value="image"
+              checked={type === 'image'}
+              onChange={() => {
+                setType('image')
+                setUrl('')
+              }}
+              className="w-4 h-4 text-primary-500"
+            />
+            <ImageIcon className="w-4 h-4 text-white/60" />
+            <span className="text-white/80">Photo</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="type"
+              value="video"
+              checked={type === 'video'}
+              onChange={() => {
+                setType('video')
+                setUrl('')
+              }}
+              className="w-4 h-4 text-primary-500"
+            />
+            <Video className="w-4 h-4 text-white/60" />
+            <span className="text-white/80">Video</span>
+          </label>
+        </div>
+      </div>
+
+      <CloudinaryUpload
+        label={type === 'image' ? 'Photo' : 'Video'}
+        value={url}
+        onChange={setUrl}
+        resourceType={type}
+        folder="tripleabookclub/gallery"
+      />
+
+      <Input
+        label="Title"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Give your media a title"
+      />
+
+      <Textarea
+        label="Description (optional)"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder="Add a brief description"
+      />
+
+      <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+        <Button type="button" variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" isLoading={isSubmitting}>
+          Upload
+        </Button>
+      </div>
+    </form>
   )
 }

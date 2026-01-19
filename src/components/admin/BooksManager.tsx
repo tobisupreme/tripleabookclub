@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Edit2, Trash2, BookOpen } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Book, BookCategory } from '@/types/database.types'
-import { Button, Modal, Input, Textarea, Skeleton } from '@/components/ui'
+import { Button, Modal, Input, Textarea, Skeleton, CloudinaryUpload } from '@/components/ui'
 import { getMonthName } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
@@ -258,11 +258,12 @@ function BookForm({ book, onSubmit, onCancel, isSubmitting }: BookFormProps) {
         placeholder="Brief description of the book"
       />
 
-      <Input
-        label="Cover Image URL"
+      <CloudinaryUpload
+        label="Cover Image"
         value={imageUrl}
-        onChange={(e) => setImageUrl(e.target.value)}
-        placeholder="https://..."
+        onChange={setImageUrl}
+        resourceType="image"
+        folder="tripleabookclub/books"
       />
 
       <div className="grid grid-cols-3 gap-4">
