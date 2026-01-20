@@ -14,17 +14,23 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     
-    if (!error) {
+    console.log('Callback: exchangeCodeForSession', { hasSession: !!data?.session, error: error?.message, type })
+    
+    if (!error && data?.session) {
       // Handle password recovery - redirect to reset password page
       if (type === 'recovery') {
+        // Session is established, redirect to reset page
         return NextResponse.redirect(`${baseUrl}/auth/reset-password`)
       }
       
       // Handle email confirmation or other auth flows
       return NextResponse.redirect(`${baseUrl}${next}`)
     }
+    
+    // If there was an error or no session, log it
+    console.error('Callback error:', error?.message || 'No session returned')
   }
 
   // If there's a token_hash in the URL (email link format), handle it

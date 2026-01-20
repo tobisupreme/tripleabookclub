@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Lock, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react'
@@ -17,137 +17,67 @@ export function ResetPasswordForm() {
   const [error, setError] = useState('')
   const [isValidSession, setIsValidSession] = useState<boolean | null>(null)
   const mountedRef = useRef(true)
-  const sessionFoundRef = useRef(false)
   
   const router = useRouter()
   const supabase = useSupabase()
 
-  // Helper to mark session as valid
-  const markSessionValid = useCallback(() => {
-    if (mountedRef.current && !sessionFoundRef.current) {
-      sessionFoundRef.current = true
-      setIsValidSession(true)
-    }
-  }, [])
-
-  // Check if user has a valid recovery session
+  // Check if user has a valid session (should already be set by callback route)
   useEffect(() => {
     mountedRef.current = true
-    sessionFoundRef.current = false
     
-    let fallbackTimeoutId: NodeJS.Timeout | null = null
-    let retryIntervalId: ReturnType<typeof setInterval> | null = null
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Reset password auth event:', event, 'Has session:', !!session)
-      
-      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
-        markSessionValid()
-        if (retryIntervalId) clearInterval(retryIntervalId)
-        if (fallbackTimeoutId) clearTimeout(fallbackTimeoutId)
-      }
-    })
-
-    const checkForSession = async (): Promise<boolean> => {
-      if (!mountedRef.current || sessionFoundRef.current) return true
-      
+    const checkSession = async () => {
       try {
+        // Give Supabase a moment to sync cookies
+        await new Promise(resolve => setTimeout(resolve, 300))
+        
         const { data: { session } } = await supabase.auth.getSession()
-        if (session && mountedRef.current) {
-          console.log('Found session on check')
-          markSessionValid()
-          return true
+        
+        if (!mountedRef.current) return
+        
+        if (session) {
+          console.log('Session found for password reset')
+          setIsValidSession(true)
+        } else {
+          // Try one more time after a short delay
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
+          if (!mountedRef.current) return
+          
+          const { data: { session: retrySession } } = await supabase.auth.getSession()
+          
+          if (!mountedRef.current) return
+          
+          if (retrySession) {
+            console.log('Session found on retry')
+            setIsValidSession(true)
+          } else {
+            console.log('No valid session found')
+            setIsValidSession(false)
+          }
         }
       } catch (err) {
         console.error('Session check error:', err)
-      }
-      return false
-    }
-
-    const initializeSession = async () => {
-      if (!mountedRef.current) return
-      
-      try {
-        // First, check if there's already a session
-        if (await checkForSession()) return
-
-        // Check if URL has hash tokens (Supabase adds these for password recovery)
-        if (typeof window !== 'undefined' && window.location.hash) {
-          const hash = window.location.hash.substring(1) // Remove the #
-          const params = new URLSearchParams(hash)
-          
-          const accessToken = params.get('access_token')
-          const refreshToken = params.get('refresh_token')
-          const type = params.get('type')
-          
-          console.log('URL hash type:', type, 'Has access token:', !!accessToken, 'Has refresh token:', !!refreshToken)
-          
-          if (accessToken && refreshToken) {
-            // Manually set the session from URL tokens
-            const { data, error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            })
-            
-            if (!mountedRef.current) return
-            
-            if (data.session && !error) {
-              console.log('Session set from URL tokens')
-              // Clear the hash from URL for security
-              window.history.replaceState(null, '', window.location.pathname)
-              markSessionValid()
-              return
-            } else if (error) {
-              console.error('Error setting session:', error)
-              // Token might be expired, don't continue retrying
-              setIsValidSession(false)
-              return
-            }
-          }
-        }
-
-        // Start retry interval - check every 500ms for session
-        let retryCount = 0
-        const maxRetries = 20 // 10 seconds total
-        
-        retryIntervalId = setInterval(async () => {
-          retryCount++
-          console.log(`Session retry ${retryCount}/${maxRetries}`)
-          
-          if (await checkForSession()) {
-            if (retryIntervalId) clearInterval(retryIntervalId)
-            return
-          }
-          
-          if (retryCount >= maxRetries) {
-            if (retryIntervalId) clearInterval(retryIntervalId)
-            if (mountedRef.current && !sessionFoundRef.current) {
-              console.log('No session found after all retries')
-              setIsValidSession(false)
-            }
-          }
-        }, 500)
-        
-      } catch (err) {
-        console.error('Session initialization error:', err)
-        if (mountedRef.current && !sessionFoundRef.current) {
+        if (mountedRef.current) {
           setIsValidSession(false)
         }
       }
     }
 
-    // Small delay to ensure client is ready
-    const initTimeoutId = setTimeout(initializeSession, 100)
+    // Also listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth event:', event, 'Has session:', !!session)
+      if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session && mountedRef.current) {
+        setIsValidSession(true)
+      }
+    })
+
+    checkSession()
 
     return () => {
       mountedRef.current = false
       subscription.unsubscribe()
-      clearTimeout(initTimeoutId)
-      if (fallbackTimeoutId) clearTimeout(fallbackTimeoutId)
-      if (retryIntervalId) clearInterval(retryIntervalId)
     }
-  }, [supabase, markSessionValid])
+  }, [supabase])
   const validatePassword = (pwd: string): string | null => {
     if (pwd.length < 8) {
       return 'Password must be at least 8 characters'
