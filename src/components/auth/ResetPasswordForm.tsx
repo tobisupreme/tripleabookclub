@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Lock, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react'
@@ -17,96 +17,106 @@ export function ResetPasswordForm() {
   const [error, setError] = useState('')
   const [isValidSession, setIsValidSession] = useState<boolean | null>(null)
   const mountedRef = useRef(true)
+  const sessionFoundRef = useRef(false)
   
   const router = useRouter()
   const supabase = useSupabase()
 
+  // Helper to mark session as valid
+  const markSessionValid = useCallback(() => {
+    if (mountedRef.current && !sessionFoundRef.current) {
+      sessionFoundRef.current = true
+      setIsValidSession(true)
+    }
+  }, [])
+
   // Check if user has a valid recovery session
   useEffect(() => {
     mountedRef.current = true
-    let timeoutId: NodeJS.Timeout
-    let checkTimeoutId: NodeJS.Timeout
+    sessionFoundRef.current = false
+    
+    let fallbackTimeoutId: NodeJS.Timeout
 
-    // Listen for auth state changes FIRST
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!mountedRef.current) return
+      console.log('Reset password auth event:', event, 'Has session:', !!session)
       
-      console.log('Auth event:', event, 'Session:', !!session)
-      
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsValidSession(true)
-        if (timeoutId) clearTimeout(timeoutId)
-        if (checkTimeoutId) clearTimeout(checkTimeoutId)
-      } else if (event === 'SIGNED_IN' && session) {
-        setIsValidSession(true)
-        if (timeoutId) clearTimeout(timeoutId)
-        if (checkTimeoutId) clearTimeout(checkTimeoutId)
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+        markSessionValid()
       }
     })
 
-    const checkSession = async () => {
+    const initializeSession = async () => {
       if (!mountedRef.current) return
       
       try {
-        // Check if there's already a session
-        const { data: { session } } = await supabase.auth.getSession()
+        // First, check if there's already a session
+        const { data: { session: existingSession } } = await supabase.auth.getSession()
         
-        if (!mountedRef.current) return
-        
-        if (session) {
-          setIsValidSession(true)
+        if (existingSession && mountedRef.current) {
+          console.log('Found existing session')
+          markSessionValid()
           return
         }
 
-        // Check URL hash for recovery tokens
-        if (typeof window !== 'undefined') {
-          const hash = window.location.hash
+        // Check if URL has hash tokens (Supabase adds these for password recovery)
+        if (typeof window !== 'undefined' && window.location.hash) {
+          const hash = window.location.hash.substring(1) // Remove the #
+          const params = new URLSearchParams(hash)
           
-          if (hash && (hash.includes('access_token') || hash.includes('type=recovery'))) {
-            // Wait longer for Supabase to process the hash
-            timeoutId = setTimeout(async () => {
-              if (!mountedRef.current) return
-              
-              const { data: { session: newSession } } = await supabase.auth.getSession()
-              
-              if (!mountedRef.current) return
-              
-              if (newSession) {
-                setIsValidSession(true)
-              } else {
-                // Give it one more try
-                setTimeout(async () => {
-                  if (!mountedRef.current) return
-                  const { data: { session: finalSession } } = await supabase.auth.getSession()
-                  if (!mountedRef.current) return
-                  setIsValidSession(!!finalSession)
-                }, 1000)
-              }
-            }, 2000)
-            return
+          const accessToken = params.get('access_token')
+          const refreshToken = params.get('refresh_token')
+          const type = params.get('type')
+          
+          console.log('URL hash type:', type, 'Has access token:', !!accessToken)
+          
+          if (accessToken && refreshToken) {
+            // Manually set the session from URL tokens
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            })
+            
+            if (!mountedRef.current) return
+            
+            if (data.session && !error) {
+              console.log('Session set from URL tokens')
+              // Clear the hash from URL for security
+              window.history.replaceState(null, '', window.location.pathname)
+              markSessionValid()
+              return
+            } else if (error) {
+              console.error('Error setting session:', error)
+            }
           }
         }
 
-        // No session and no recovery hash - invalid
-        setIsValidSession(false)
+        // Set a fallback timeout - if no session found, mark as invalid
+        fallbackTimeoutId = setTimeout(() => {
+          if (mountedRef.current && !sessionFoundRef.current) {
+            console.log('No session found after timeout')
+            setIsValidSession(false)
+          }
+        }, 3000)
+        
       } catch (err) {
-        console.error('Session check error:', err)
-        if (mountedRef.current) {
+        console.error('Session initialization error:', err)
+        if (mountedRef.current && !sessionFoundRef.current) {
           setIsValidSession(false)
         }
       }
     }
 
-    // Delay initial check to let Supabase client initialize
-    checkTimeoutId = setTimeout(checkSession, 800)
+    // Small delay to ensure client is ready
+    const initTimeoutId = setTimeout(initializeSession, 100)
 
     return () => {
       mountedRef.current = false
       subscription.unsubscribe()
-      if (timeoutId) clearTimeout(timeoutId)
-      if (checkTimeoutId) clearTimeout(checkTimeoutId)
+      clearTimeout(initTimeoutId)
+      if (fallbackTimeoutId) clearTimeout(fallbackTimeoutId)
     }
-  }, [supabase])
+  }, [supabase, markSessionValid])
   const validatePassword = (pwd: string): string | null => {
     if (pwd.length < 8) {
       return 'Password must be at least 8 characters'
