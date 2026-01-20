@@ -22,27 +22,60 @@ export function ResetPasswordForm() {
 
   // Check if user has a valid recovery session
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout
+
     const checkSession = async () => {
+      // First, check if there's already a session
       const { data: { session } } = await supabase.auth.getSession()
       
-      // User should have a session from the recovery link
       if (session) {
         setIsValidSession(true)
-      } else {
-        setIsValidSession(false)
+        return
       }
+
+      // Check URL hash for recovery tokens (Supabase puts them there)
+      if (typeof window !== 'undefined') {
+        const hash = window.location.hash
+        
+        // If there's a hash with access_token or type=recovery, Supabase will handle it
+        if (hash && (hash.includes('access_token') || hash.includes('type=recovery'))) {
+          // Wait a bit for Supabase to process the hash
+          timeoutId = setTimeout(async () => {
+            const { data: { session: newSession } } = await supabase.auth.getSession()
+            if (newSession) {
+              setIsValidSession(true)
+            } else {
+              setIsValidSession(false)
+            }
+          }, 1500)
+          return
+        }
+      }
+
+      // No session and no recovery hash - invalid
+      setIsValidSession(false)
     }
 
-    checkSession()
-
-    // Listen for auth state changes (recovery link sets session automatically)
+    // Listen for auth state changes FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
+      console.log('Auth event:', event)
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
         setIsValidSession(true)
+        // Clear any pending timeout
+        if (timeoutId) clearTimeout(timeoutId)
       }
     })
 
-    return () => subscription.unsubscribe()
+    // Then check session after a small delay to let Supabase process URL hash
+    const initialDelay = setTimeout(() => {
+      checkSession()
+    }, 500)
+
+    return () => {
+      subscription.unsubscribe()
+      if (timeoutId) clearTimeout(timeoutId)
+      clearTimeout(initialDelay)
+    }
   }, [supabase])
 
   const validatePassword = (pwd: string): string | null => {

@@ -37,8 +37,9 @@ export function ForgotPasswordForm() {
         ? 'https://tripleabookclub.com' 
         : window.location.origin
       
+      // Redirect directly to reset-password page - Supabase will add tokens to URL hash
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${baseUrl}/auth/callback?type=recovery`,
+        redirectTo: `${baseUrl}/auth/reset-password`,
       })
 
       if (error) throw error
