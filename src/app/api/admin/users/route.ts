@@ -78,7 +78,6 @@ export async function POST(request: Request) {
         reset_token: resetToken,
         reset_token_expiry: resetTokenExpiry,
         role: 'member',
-        is_active: true,
       })
       .select()
       .single()
