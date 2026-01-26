@@ -1,5 +1,5 @@
-import { Loading } from '@/components/ui'
+import { PageLoader } from '@/components/ui'
 
 export default function MeetupsLoading() {
-  return <Loading />
+  return <PageLoader message="Loading meet-ups..." />
 }
