@@ -135,24 +135,18 @@ export interface Database {
           id: string
           user_id: string
           suggestion_id: string
-          month: number
-          year: number
           created_at: string
         }
         Insert: {
           id?: string
           user_id: string
           suggestion_id: string
-          month: number
-          year: number
           created_at?: string
         }
         Update: {
           id?: string
           user_id?: string
           suggestion_id?: string
-          month?: number
-          year?: number
           created_at?: string
         }
       }

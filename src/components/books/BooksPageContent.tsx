@@ -94,17 +94,17 @@ export function BooksPageContent() {
 
             // Count user's suggestions
             const currentUser = userRef.current
-            if (currentUser) {
-              const userSuggestions = (suggestionsData || []).filter(s => s.user_id === currentUser.id)
+            if (currentUser && suggestionsData && suggestionsData.length > 0) {
+              const userSuggestions = suggestionsData.filter(s => s.user_id === currentUser.id)
               setUserSuggestionCount(userSuggestions.length)
 
-              // Fetch user's votes
+              // Fetch user's votes for these suggestions
+              const suggestionIds = suggestionsData.map(s => s.id)
               const { data: votesData } = await supabase
                 .from('votes')
                 .select('suggestion_id')
                 .eq('user_id', currentUser.id)
-                .eq('month', currentTargetMonth)
-                .eq('year', nextMonth.year)
+                .in('suggestion_id', suggestionIds)
 
               if (!isMounted) return
               setUserVotes((votesData || []).map(v => v.suggestion_id))
@@ -183,35 +183,30 @@ export function BooksPageContent() {
     }
 
     try {
-      const targetMonth = activeTab === 'fiction' ? nextMonth.month : getBiMonthlyPeriod(nextMonth.month, nextMonth.year).startMonth
-
-      // Add vote
+      // Add vote (vote_count is automatically incremented by database trigger)
       const { error: voteError } = await supabase
         .from('votes')
         .insert({
           user_id: user.id,
           suggestion_id: suggestionId,
-          month: targetMonth,
-          year: nextMonth.year,
         })
 
       if (voteError) throw voteError
 
-      // Increment vote count
-      const suggestion = suggestions.find(s => s.id === suggestionId)
-      if (suggestion) {
-        await supabase
-          .from('suggestions')
-          .update({ vote_count: (suggestion.vote_count || 0) + 1 })
-          .eq('id', suggestionId)
-      }
+      // Wait a moment for trigger to update vote_count, then fetch the updated suggestion
+      await new Promise(resolve => setTimeout(resolve, 100))
+      const { data: updatedSuggestion } = await supabase
+        .from('suggestions')
+        .select('vote_count')
+        .eq('id', suggestionId)
+        .single()
 
-      // Update local state
+      // Update local state with the new vote count from database
       setUserVotes(prev => [...prev, suggestionId])
       setSuggestions(prev =>
         prev.map(s =>
           s.id === suggestionId
-            ? { ...s, vote_count: (s.vote_count || 0) + 1 }
+            ? { ...s, vote_count: updatedSuggestion?.vote_count || (s.vote_count || 0) + 1 }
             : s
         ).sort((a, b) => (b.vote_count || 0) - (a.vote_count || 0))
       )
