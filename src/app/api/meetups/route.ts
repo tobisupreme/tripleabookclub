@@ -175,22 +175,43 @@ export async function PUT(request: Request) {
 
     const supabase = getSupabaseAdmin()
 
+    // First, verify the meetup exists
+    const { data: existingMeetup, error: fetchError } = await supabase
+      .from('meetups')
+      .select('id')
+      .eq('id', id)
+      .single()
+
+    if (fetchError || !existingMeetup) {
+      console.error('Meetup not found:', fetchError)
+      return NextResponse.json(
+        { error: 'Meetup not found' },
+        { status: 404 }
+      )
+    }
+
     const { data, error } = await supabase
       .from('meetups')
       .update(updateData)
       .eq('id', id)
       .select()
-      .single()
 
     if (error) {
       console.error('Meetup update error:', error)
+      return NextResponse.json(
+        { error: 'Failed to update meetup', details: error.message },
+        { status: 500 }
+      )
+    }
+
+    if (!data || data.length === 0) {
       return NextResponse.json(
         { error: 'Failed to update meetup' },
         { status: 500 }
       )
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json(data[0])
   } catch (error) {
     console.error('API error:', error)
     return NextResponse.json(
