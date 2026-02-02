@@ -103,10 +103,6 @@ export function BookCard({
             {book.synopsis}
           </p>
 
-          <p className="text-white/50 text-sm leading-relaxed mt-2 line-clamp-3 flex-1">
-            {book.synopsis}
-          </p>
-
           {/* Vote button for suggestions */}
           {showVoteButton && (
             <motion.button
