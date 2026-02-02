@@ -58,3 +58,23 @@ export function slugify(text: string): string {
 export function generateId(): string {
   return Math.random().toString(36).substring(2) + Date.now().toString(36)
 }
+
+/**
+ * Transform Cloudinary URLs to auto-convert HEIC/HEIF to browser-compatible formats
+ * Also adds quality optimization for all images
+ */
+export function getCloudinaryDisplayUrl(url: string): string {
+  if (!url) return url
+  
+  // Only process Cloudinary URLs
+  if (!url.includes('cloudinary.com')) return url
+  
+  // Check if it already has transformations
+  if (url.includes('/upload/f_auto') || url.includes('/upload/q_auto')) {
+    return url
+  }
+  
+  // Add f_auto (auto format) and q_auto (auto quality) transformations
+  // This will convert HEIC/HEIF to WebP/JPG based on browser support
+  return url.replace('/upload/', '/upload/f_auto,q_auto/')
+}

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Edit2, Trash2, Image as ImageIcon, Video, GripVertical, Calendar } from 'lucide-react'
 import { GalleryItem } from '@/types/database.types'
 import { Button, Modal, Input, Textarea, Skeleton, CloudinaryUpload } from '@/components/ui'
+import { getCloudinaryDisplayUrl } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 const MONTH_NAMES = [
@@ -128,7 +129,7 @@ export function GalleryManager() {
             <div key={item.id} className="group relative aspect-square rounded-xl overflow-hidden bg-white/5">
               {item.type === 'image' ? (
                 <img
-                  src={item.url}
+                  src={getCloudinaryDisplayUrl(item.url)}
                   alt={item.title}
                   className="w-full h-full object-cover"
                 />

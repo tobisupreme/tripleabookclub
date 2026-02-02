@@ -12,6 +12,20 @@ interface CloudinaryUploadProps {
   folder?: string
 }
 
+// Helper to convert Cloudinary URL to serve HEIC/HEIF as JPG
+function getDisplayUrl(url: string): string {
+  if (!url) return url
+  
+  // Check if it's a Cloudinary image URL with HEIC/HEIF
+  if (url.includes('cloudinary.com') && (url.includes('.heic') || url.includes('.heif'))) {
+    // Insert f_auto transformation to auto-convert to browser-compatible format
+    // Transform: /upload/ -> /upload/f_auto,q_auto/
+    return url.replace('/upload/', '/upload/f_auto,q_auto/')
+  }
+  
+  return url
+}
+
 export function CloudinaryUpload({
   value,
   onChange,
@@ -47,10 +61,8 @@ export function CloudinaryUpload({
           resourceType: resourceType === 'video' ? 'video' : resourceType === 'auto' ? 'auto' : 'image',
           maxFiles: 1,
           sources: ['local', 'url', 'camera'],
-          // Allow HEIC/HEIF for images and common video formats
-          clientAllowedFormats: resourceType === 'video' 
-            ? ['mp4', 'mov', 'avi', 'webm', 'mkv', 'm4v', 'wmv', 'flv', '3gp']
-            : ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'avif', 'bmp', 'tiff', 'svg'],
+          // Don't restrict formats - let Cloudinary handle all formats
+          multiple: false,
           styles: {
             palette: {
               window: '#1a1a2e',
@@ -103,7 +115,7 @@ export function CloudinaryUpload({
                   />
                 ) : (
                   <img
-                    src={preview}
+                    src={getDisplayUrl(preview)}
                     alt="Preview"
                     className="w-full aspect-[4/3] sm:aspect-video object-contain"
                   />

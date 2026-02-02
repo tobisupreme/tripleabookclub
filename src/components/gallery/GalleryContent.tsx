@@ -8,6 +8,7 @@ import { Play, X, Image as ImageIcon, Video, ZoomIn, Plus, Calendar, ArrowLeft, 
 import { useAuth } from '@/hooks'
 import { GalleryItem } from '@/types/database.types'
 import { Tabs, TabPanel, Skeleton, Button, Modal, Input, Textarea, CloudinaryUpload } from '@/components/ui'
+import { getCloudinaryDisplayUrl } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 gsap.registerPlugin(ScrollTrigger)
@@ -312,7 +313,7 @@ function MonthCard({ group, onClick }: MonthCardProps) {
             {group.thumbnails.slice(0, 4).map((url, index) => (
               <div key={index} className="relative overflow-hidden">
                 <img
-                  src={url}
+                  src={getCloudinaryDisplayUrl(url)}
                   alt=""
                   className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
@@ -398,7 +399,7 @@ function GalleryCard({ item, index, onClick }: GalleryCardProps) {
       <div className={`relative ${isTall ? 'aspect-[3/4]' : 'aspect-square'}`}>
         {item.type === 'image' ? (
           <img
-            src={item.url}
+            src={getCloudinaryDisplayUrl(item.url)}
             alt={item.title}
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           />
@@ -528,7 +529,7 @@ function Lightbox({ item, items, onClose, onNavigate }: LightboxProps) {
       >
         {item.type === 'image' ? (
           <img
-            src={item.url}
+            src={getCloudinaryDisplayUrl(item.url)}
             alt={item.title}
             className="max-w-full max-h-[80vh] object-contain rounded-lg"
           />
