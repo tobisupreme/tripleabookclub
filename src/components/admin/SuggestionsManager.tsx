@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { Check, X, BookOpen, Trophy } from 'lucide-react'
-import { useSupabase } from '@/hooks'
 import { Suggestion } from '@/types/database.types'
 import { Button, Skeleton } from '@/components/ui'
 import { getMonthName } from '@/lib/utils'
@@ -12,21 +11,22 @@ export function SuggestionsManager() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [loading, setLoading] = useState(true)
 
-  const supabase = useSupabase()
-
   useEffect(() => {
     fetchSuggestions()
   }, [])
 
   const fetchSuggestions = async () => {
-    const { data } = await supabase
-      .from('suggestions')
-      .select('*, profiles(full_name, email)')
-      .order('vote_count', { ascending: false })
-      .order('created_at', { ascending: false })
-
-    setSuggestions(data || [])
-    setLoading(false)
+    try {
+      const response = await fetch('/api/suggestions')
+      if (!response.ok) throw new Error('Failed to fetch')
+      const data = await response.json()
+      setSuggestions(data || [])
+    } catch (error) {
+      console.error('Error fetching suggestions:', error)
+      toast.error('Failed to load suggestions')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleSelectWinner = async (suggestion: Suggestion) => {
@@ -35,50 +35,40 @@ export function SuggestionsManager() {
     }
 
     try {
-      // Add as a book
-      const { error: bookError } = await supabase
-        .from('books')
-        .insert({
-          title: suggestion.title,
-          author: suggestion.author,
-          synopsis: suggestion.synopsis,
-          image_url: suggestion.image_url,
-          category: suggestion.category,
-          month: suggestion.month,
-          year: suggestion.year,
-          is_selected: true,
-        })
+      const response = await fetch('/api/suggestions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ suggestion_id: suggestion.id, action: 'select_winner' }),
+      })
 
-      if (bookError) throw bookError
-
-      // Close voting for this period
-      await supabase
-        .from('portal_status')
-        .update({ voting_open: false, nomination_open: false })
-        .eq('month', suggestion.month)
-        .eq('year', suggestion.year)
-        .eq('category', suggestion.category)
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to select winner')
+      }
 
       toast.success(`"${suggestion.title}" selected as winner!`)
       fetchSuggestions()
     } catch (error) {
       console.error(error)
-      toast.error('Failed to select winner')
+      toast.error(error instanceof Error ? error.message : 'Failed to select winner')
     }
   }
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this suggestion?')) return
 
-    const { error } = await supabase.from('suggestions').delete().eq('id', id)
+    try {
+      const response = await fetch(`/api/suggestions?id=${id}`, {
+        method: 'DELETE',
+      })
 
-    if (error) {
+      if (!response.ok) throw new Error('Failed to delete')
+
+      setSuggestions(suggestions.filter((s) => s.id !== id))
+      toast.success('Suggestion deleted')
+    } catch (error) {
       toast.error('Failed to delete suggestion')
-      return
     }
-
-    setSuggestions(suggestions.filter((s) => s.id !== id))
-    toast.success('Suggestion deleted')
   }
 
   // Group suggestions by month/year/category

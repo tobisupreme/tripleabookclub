@@ -13,37 +13,21 @@ function getSupabaseAdmin() {
   return createClient(supabaseUrl, supabaseServiceKey)
 }
 
-// GET - Fetch meetups (for authenticated users)
+// GET - Fetch books
 export async function GET() {
   try {
-    const session = await auth()
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
     const supabase = getSupabaseAdmin()
-    const isAdmin = session.user.role === 'super_admin' || session.user.role === 'admin'
 
-    // Admins can see all meetups, members only see published
-    const query = supabase
-      .from('meetups')
+    const { data, error } = await supabase
+      .from('books')
       .select('*')
-      .order('event_date', { ascending: false })
-
-    if (!isAdmin) {
-      query.eq('is_published', true)
-    }
-
-    const { data, error } = await query
+      .order('year', { ascending: false })
+      .order('month', { ascending: false })
 
     if (error) {
-      console.error('Meetups fetch error:', error)
+      console.error('Books fetch error:', error)
       return NextResponse.json(
-        { error: 'Failed to fetch meetups' },
+        { error: 'Failed to fetch books' },
         { status: 500 }
       )
     }
@@ -58,7 +42,7 @@ export async function GET() {
   }
 }
 
-// POST - Create a new meetup (admin only)
+// POST - Create a new book (admin only)
 export async function POST(request: Request) {
   try {
     const session = await auth()
@@ -70,7 +54,7 @@ export async function POST(request: Request) {
       )
     }
 
-    if (session.user.role !== 'super_admin') {
+    if (session.user.role !== 'super_admin' && session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -78,25 +62,10 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const {
-      title,
-      description,
-      venue_name,
-      address,
-      city,
-      latitude,
-      longitude,
-      google_maps_url,
-      event_date,
-      end_time,
-      month,
-      year,
-      image_url,
-      is_published
-    } = body
+    const { title, author, synopsis, image_url, category, month, year, is_selected } = body
 
     // Validate required fields
-    if (!title || !venue_name || !address || !event_date || !month || !year) {
+    if (!title || !author || !category || !month || !year) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -106,35 +75,28 @@ export async function POST(request: Request) {
     const supabase = getSupabaseAdmin()
 
     const { data, error } = await supabase
-      .from('meetups')
+      .from('books')
       .insert({
-        title,
-        description: description || null,
-        venue_name,
-        address,
-        city: city || 'Lagos',
-        latitude: latitude || null,
-        longitude: longitude || null,
-        google_maps_url: google_maps_url || null,
-        event_date,
-        end_time: end_time || null,
+        title: title.trim(),
+        author: author.trim(),
+        synopsis: synopsis?.trim() || null,
+        image_url: image_url?.trim() || null,
+        category,
         month,
         year,
-        image_url: image_url || null,
-        is_published: is_published || false,
+        is_selected: is_selected ?? true,
       })
       .select()
-      .single()
 
     if (error) {
-      console.error('Meetup creation error:', error)
+      console.error('Book creation error:', error)
       return NextResponse.json(
-        { error: 'Failed to create meetup' },
+        { error: 'Failed to create book', details: error.message },
         { status: 500 }
       )
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json(data?.[0] || data)
   } catch (error) {
     console.error('API error:', error)
     return NextResponse.json(
@@ -144,7 +106,7 @@ export async function POST(request: Request) {
   }
 }
 
-// PUT - Update a meetup (admin only)
+// PUT - Update a book (admin only)
 export async function PUT(request: Request) {
   try {
     const session = await auth()
@@ -156,7 +118,7 @@ export async function PUT(request: Request) {
       )
     }
 
-    if (session.user.role !== 'super_admin') {
+    if (session.user.role !== 'super_admin' && session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -168,7 +130,7 @@ export async function PUT(request: Request) {
 
     if (!id) {
       return NextResponse.json(
-        { error: 'Meetup ID is required' },
+        { error: 'Book ID is required' },
         { status: 400 }
       )
     }
@@ -176,22 +138,22 @@ export async function PUT(request: Request) {
     const supabase = getSupabaseAdmin()
 
     const { data, error } = await supabase
-      .from('meetups')
+      .from('books')
       .update(updateData)
       .eq('id', id)
       .select()
 
     if (error) {
-      console.error('Meetup update error:', error)
+      console.error('Book update error:', error)
       return NextResponse.json(
-        { error: 'Failed to update meetup', details: error.message },
+        { error: 'Failed to update book', details: error.message },
         { status: 500 }
       )
     }
 
     if (!data || data.length === 0) {
       return NextResponse.json(
-        { error: 'Meetup not found' },
+        { error: 'Book not found' },
         { status: 404 }
       )
     }
@@ -206,7 +168,7 @@ export async function PUT(request: Request) {
   }
 }
 
-// DELETE - Delete a meetup (admin only)
+// DELETE - Delete a book (admin only)
 export async function DELETE(request: Request) {
   try {
     const session = await auth()
@@ -218,7 +180,7 @@ export async function DELETE(request: Request) {
       )
     }
 
-    if (session.user.role !== 'super_admin') {
+    if (session.user.role !== 'super_admin' && session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -230,7 +192,7 @@ export async function DELETE(request: Request) {
 
     if (!id) {
       return NextResponse.json(
-        { error: 'Meetup ID is required' },
+        { error: 'Book ID is required' },
         { status: 400 }
       )
     }
@@ -238,14 +200,14 @@ export async function DELETE(request: Request) {
     const supabase = getSupabaseAdmin()
 
     const { error } = await supabase
-      .from('meetups')
+      .from('books')
       .delete()
       .eq('id', id)
 
     if (error) {
-      console.error('Meetup deletion error:', error)
+      console.error('Book deletion error:', error)
       return NextResponse.json(
-        { error: 'Failed to delete meetup' },
+        { error: 'Failed to delete book' },
         { status: 500 }
       )
     }

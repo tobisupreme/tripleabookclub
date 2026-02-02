@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { Plus, Edit2, Trash2, BookOpen } from 'lucide-react'
-import { useSupabase } from '@/hooks'
 import { Book, BookCategory } from '@/types/database.types'
 import { Button, Modal, Input, Textarea, Skeleton, CloudinaryUpload } from '@/components/ui'
 import { getMonthName } from '@/lib/utils'
@@ -15,35 +14,39 @@ export function BooksManager() {
   const [editingBook, setEditingBook] = useState<Book | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const supabase = useSupabase()
-
   useEffect(() => {
     fetchBooks()
   }, [])
 
   const fetchBooks = async () => {
-    const { data } = await supabase
-      .from('books')
-      .select('*')
-      .order('year', { ascending: false })
-      .order('month', { ascending: false })
-
-    setBooks((data as Book[]) || [])
-    setLoading(false)
+    try {
+      const response = await fetch('/api/books')
+      if (!response.ok) throw new Error('Failed to fetch')
+      const data = await response.json()
+      setBooks(data || [])
+    } catch (error) {
+      console.error('Error fetching books:', error)
+      toast.error('Failed to load books')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this book?')) return
 
-    const { error } = await supabase.from('books').delete().eq('id', id)
+    try {
+      const response = await fetch(`/api/books?id=${id}`, {
+        method: 'DELETE',
+      })
 
-    if (error) {
+      if (!response.ok) throw new Error('Failed to delete')
+
+      setBooks(books.filter((b) => b.id !== id))
+      toast.success('Book deleted')
+    } catch (error) {
       toast.error('Failed to delete book')
-      return
     }
-
-    setBooks(books.filter((b) => b.id !== id))
-    toast.success('Book deleted')
   }
 
   const handleEdit = (book: Book) => {
@@ -69,25 +72,28 @@ export function BooksManager() {
 
     try {
       if (editingBook) {
-        const { error } = await supabase
-          .from('books')
-          .update(formData)
-          .eq('id', editingBook.id)
+        const response = await fetch('/api/books', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingBook.id, ...formData }),
+        })
 
-        if (error) throw error
+        if (!response.ok) throw new Error('Failed to update')
 
-        setBooks(books.map((b) => (b.id === editingBook.id ? { ...b, ...formData } : b)))
+        const updatedBook = await response.json()
+        setBooks(books.map((b) => (b.id === editingBook.id ? updatedBook : b)))
         toast.success('Book updated')
       } else {
-        const { data, error } = await supabase
-          .from('books')
-          .insert({ ...formData, is_selected: true })
-          .select()
-          .single()
+        const response = await fetch('/api/books', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...formData, is_selected: true }),
+        })
 
-        if (error) throw error
+        if (!response.ok) throw new Error('Failed to create')
 
-        setBooks([data as Book, ...books])
+        const newBook = await response.json()
+        setBooks([newBook, ...books])
         toast.success('Book added')
       }
 

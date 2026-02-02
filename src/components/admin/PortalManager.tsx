@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { Calendar, BookOpen, BookMarked, Lock, Unlock, Vote } from 'lucide-react'
-import { useSupabase } from '@/hooks'
 import { PortalStatus } from '@/types/database.types'
 import { Button, Skeleton } from '@/components/ui'
 import { getMonthName, getCurrentMonthYear, getNextMonth } from '@/lib/utils'
@@ -12,7 +11,6 @@ export function PortalManager() {
   const [statuses, setStatuses] = useState<PortalStatus[]>([])
   const [loading, setLoading] = useState(true)
 
-  const supabase = useSupabase()
   const { month, year } = getCurrentMonthYear()
   const nextMonth = getNextMonth(month, year)
 
@@ -21,15 +19,17 @@ export function PortalManager() {
   }, [])
 
   const fetchStatuses = async () => {
-    // Fetch statuses for current and next 3 months
-    const { data } = await supabase
-      .from('portal_status')
-      .select('*')
-      .order('year', { ascending: true })
-      .order('month', { ascending: true })
-
-    setStatuses(data || [])
-    setLoading(false)
+    try {
+      const response = await fetch('/api/portal')
+      if (!response.ok) throw new Error('Failed to fetch')
+      const data = await response.json()
+      setStatuses(data || [])
+    } catch (error) {
+      console.error('Error fetching statuses:', error)
+      toast.error('Failed to load portal statuses')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const toggleNomination = async (status: PortalStatus) => {
@@ -41,20 +41,22 @@ export function PortalManager() {
       ...(newStatus && { voting_open: false }),
     }
 
-    const { error } = await supabase
-      .from('portal_status')
-      .update(updates)
-      .eq('id', status.id)
+    try {
+      const response = await fetch('/api/portal', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: status.id, ...updates }),
+      })
 
-    if (error) {
+      if (!response.ok) throw new Error('Failed to update')
+
+      setStatuses(statuses.map((s) => 
+        s.id === status.id ? { ...s, ...updates } : s
+      ))
+      toast.success(`Nominations ${newStatus ? 'opened' : 'closed'}`)
+    } catch (error) {
       toast.error('Failed to update status')
-      return
     }
-
-    setStatuses(statuses.map((s) => 
-      s.id === status.id ? { ...s, ...updates } : s
-    ))
-    toast.success(`Nominations ${newStatus ? 'opened' : 'closed'}`)
   }
 
   const toggleVoting = async (status: PortalStatus) => {
@@ -66,42 +68,46 @@ export function PortalManager() {
       ...(newStatus && { nomination_open: false }),
     }
 
-    const { error } = await supabase
-      .from('portal_status')
-      .update(updates)
-      .eq('id', status.id)
+    try {
+      const response = await fetch('/api/portal', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: status.id, ...updates }),
+      })
 
-    if (error) {
+      if (!response.ok) throw new Error('Failed to update')
+
+      setStatuses(statuses.map((s) => 
+        s.id === status.id ? { ...s, ...updates } : s
+      ))
+      toast.success(`Voting ${newStatus ? 'opened' : 'closed'}`)
+    } catch (error) {
       toast.error('Failed to update status')
-      return
     }
-
-    setStatuses(statuses.map((s) => 
-      s.id === status.id ? { ...s, ...updates } : s
-    ))
-    toast.success(`Voting ${newStatus ? 'opened' : 'closed'}`)
   }
 
   const createPortalStatus = async (targetMonth: number, targetYear: number, category: 'fiction' | 'non-fiction') => {
-    const { data, error } = await supabase
-      .from('portal_status')
-      .insert({
-        month: targetMonth,
-        year: targetYear,
-        category,
-        nomination_open: false,
-        voting_open: false,
+    try {
+      const response = await fetch('/api/portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          month: targetMonth,
+          year: targetYear,
+          category,
+          nomination_open: false,
+          voting_open: false,
+        }),
       })
-      .select()
-      .single()
 
-    if (error) {
+      if (!response.ok) throw new Error('Failed to create')
+
+      const data = await response.json()
+      setStatuses([...statuses, data])
+      toast.success('Portal status created')
+    } catch (error) {
       toast.error('Failed to create portal status')
-      return
     }
-
-    setStatuses([...statuses, data])
-    toast.success('Portal status created')
   }
 
   // Generate periods for the next 6 months
