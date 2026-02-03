@@ -299,7 +299,7 @@ export function Hero() {
                           {member.image_url ? (
                             <Image
                               src={member.image_url}
-                              alt={member.full_name || 'Member'}
+                              alt={member.name || 'Member'}
                               width={32}
                               height={32}
                               className="object-cover w-full h-full"
