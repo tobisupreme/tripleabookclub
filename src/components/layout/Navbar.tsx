@@ -50,7 +50,12 @@ export function Navbar() {
         )}
       >
         <div className="container-main">
-          <nav className="flex items-center justify-between">
+          <nav
+            className={cn(
+              'flex items-center justify-between',
+              isAuthPage && 'lg:justify-end'
+            )}
+          >
             {/* Logo */}
             <Link
               href="/"
@@ -68,14 +73,19 @@ export function Navbar() {
                   priority
                 />
               </div>
-              <span className="font-display text-xl font-bold hidden sm:block">
+              <span
+                className={cn(
+                  'font-display text-xl font-bold hidden sm:block',
+                  isAuthPage && 'block text-base sm:text-xl'
+                )}
+              >
                 <span className="text-gradient">Triple A</span>
                 <span className="text-white/80 font-normal ml-1">Book Club</span>
               </span>
             </Link>
 
             {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center gap-8">
+            <div className={cn('hidden lg:flex items-center gap-8', isAuthPage && 'lg:ml-auto')}>
               <ul className="flex items-center gap-1">
                 {navLinks.map((link) => {
                   // Hide members-only links if user is not logged in
