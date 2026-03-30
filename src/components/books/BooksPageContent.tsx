@@ -262,7 +262,7 @@ export function BooksPageContent() {
 
           {/* Nomination/Voting status - Only show on Fiction tab */}
           {activeTab === 'fiction' && portalStatus && (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col-reverse sm:flex-row items-center gap-5 sm:gap-3">
               {portalStatus.nomination_open && user && (
                 <Button
                   onClick={() => setShowSuggestionModal(true)}
@@ -279,7 +279,7 @@ export function BooksPageContent() {
                 </div>
               )}
               {portalStatus.nomination_open && (
-                <div className="flex items-center gap-2 px-4 py-2 bg-primary-500/10 rounded-full text-primary-400 text-sm">
+                <div className="flex items-center gap-2 px-4 py-3 bg-primary-500/10 rounded-full text-primary-400 text-sm">
                   <Plus className="w-4 h-4" />
                   <span>Nominations Open for {periodLabel}</span>
                 </div>
@@ -474,37 +474,9 @@ function BooksGrid({ books, suggestions, portalStatus, loading, userVotes, onVot
     }
   }, [books.length, hasAnimated])
 
-  // Group books by month/year
-  const groupedBooks = useMemo(() => {
-    const groups: { [key: string]: Book[] } = {}
-    books.forEach(book => {
-      const key = `${book.year}-${book.month}`
-      if (!groups[key]) {
-        groups[key] = []
-      }
-      groups[key].push(book)
-    })
-    
-    // Sort keys by date (newest first)
-    const sortedKeys = Object.keys(groups).sort((a, b) => {
-      const [yearA, monthA] = a.split('-').map(Number)
-      const [yearB, monthB] = b.split('-').map(Number)
-      if (yearA !== yearB) return yearB - yearA
-      return monthB - monthA
-    })
-    
-    return sortedKeys.map(key => {
-      const [year, month] = key.split('-').map(Number)
-      return {
-        label: `${getMonthName(month)} ${year}`,
-        books: groups[key]
-      }
-    })
-  }, [books])
-
   if (loading) {
     return (
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {Array.from({ length: 8 }).map((_, i) => (
           <BookCardSkeleton key={i} />
         ))}
@@ -525,8 +497,8 @@ function BooksGrid({ books, suggestions, portalStatus, loading, userVotes, onVot
         />
       )}
 
-      {/* Books by Month */}
-      {groupedBooks.length === 0 ? (
+      {/* Books Grid */}
+      {books.length === 0 ? (
         <div className="text-center py-16 card">
           <div className="text-6xl mb-4">📚</div>
           <h4 className="text-xl font-semibold text-white mb-2">
@@ -539,21 +511,13 @@ function BooksGrid({ books, suggestions, portalStatus, loading, userVotes, onVot
           </p>
         </div>
       ) : (
-        groupedBooks.map(({ label, books: monthBooks }) => (
-          <div key={label}>
-            <h3 className="text-2xl font-display font-bold text-white mb-8 flex items-center gap-3">
-              <span className="w-2 h-2 rounded-full bg-primary-500" />
-              {label}
-            </h3>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {monthBooks.map((book) => (
-                <div key={book.id}>
-                  <BookCard book={book} onClick={() => onBookClick(book)} />
-                </div>
-              ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {books.map((book) => (
+            <div key={book.id}>
+              <BookCard book={book} showMonthBadge onClick={() => onBookClick(book)} />
             </div>
-          </div>
-        ))
+          ))}
+        </div>
       )}
     </div>
   )

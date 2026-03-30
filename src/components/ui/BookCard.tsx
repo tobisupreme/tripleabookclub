@@ -4,12 +4,13 @@ import { motion } from 'framer-motion'
 import Image from 'next/image'
 import { BookOpen, User, Vote } from 'lucide-react'
 import { Book, Suggestion } from '@/types/database.types'
-import { cn } from '@/lib/utils'
+import { cn, getMonthName } from '@/lib/utils'
 
 interface BookCardProps {
   book: Book | Suggestion
   variant?: 'default' | 'suggestion' | 'featured'
   showVoteButton?: boolean
+  showMonthBadge?: boolean
   hasVoted?: boolean
   onVote?: () => void
   onClick?: () => void
@@ -19,6 +20,7 @@ export function BookCard({
   book,
   variant = 'default',
   showVoteButton = false,
+  showMonthBadge = false,
   hasVoted = false,
   onVote,
   onClick,
@@ -74,13 +76,21 @@ export function BookCard({
             </span>
           </div>
 
-          {/* Vote count for suggestions */}
-          {isSuggestion && (
-            <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 bg-dark-950/80 rounded-full">
-              <Vote className="w-3 h-3 text-primary-400" />
-              <span className="text-xs font-medium text-white">{voteCount}</span>
-            </div>
-          )}
+          <div className="absolute top-3 right-3 flex flex-col items-end gap-2">
+            {showMonthBadge && (
+              <span className="px-3 py-1 text-xs font-medium rounded-full bg-dark-950/80 text-white/90 backdrop-blur-sm">
+                {getMonthName(book.month)} {book.year}
+              </span>
+            )}
+
+            {/* Vote count for suggestions */}
+            {isSuggestion && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-dark-950/80 rounded-full">
+                <Vote className="w-3 h-3 text-primary-400" />
+                <span className="text-xs font-medium text-white">{voteCount}</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Book info */}

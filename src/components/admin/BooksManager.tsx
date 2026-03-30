@@ -115,9 +115,9 @@ export function BooksManager() {
       </div>
 
       {loading ? (
-        <div className="grid gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
+            <Skeleton key={i} className="h-72 rounded-xl" />
           ))}
         </div>
       ) : books.length === 0 ? (
@@ -126,10 +126,10 @@ export function BooksManager() {
           <p className="text-white/60">No books yet. Add your first book!</p>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {books.map((book) => (
-            <div key={book.id} className="card flex items-center gap-4">
-              <div className="w-16 h-20 rounded-lg overflow-hidden bg-white/5 flex-shrink-0">
+            <div key={book.id} className="card flex flex-col h-full">
+              <div className="w-full aspect-[3/4] rounded-lg overflow-hidden bg-white/5">
                 {book.image_url ? (
                   <img
                     src={book.image_url}
@@ -143,10 +143,10 @@ export function BooksManager() {
                 )}
               </div>
 
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-white truncate">{book.title}</h3>
-                <p className="text-sm text-white/60">{book.author}</p>
-                <div className="flex items-center gap-2 mt-1">
+              <div className="flex-1 min-w-0 mt-4">
+                <h3 className="font-semibold text-white truncate mb-1">{book.title}</h3>
+                <p className="text-sm text-white/60 truncate">{book.author}</p>
+                <div className="flex items-center gap-2 mt-2">
                   <span
                     className={`px-2 py-0.5 text-xs rounded-full ${
                       book.category === 'fiction'
@@ -162,7 +162,7 @@ export function BooksManager() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-end gap-2">
                 <button
                   onClick={() => handleEdit(book)}
                   className="p-2 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors"
